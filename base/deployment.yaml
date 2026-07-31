@@ -1,41 +1,40 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: devpulse-deployment
+  name: eddie-register-app-deployment
   labels:
-    app: devpulse
+    app: eddie-register-app
 spec:
-  # Replicas will be managed by overlays
   selector:
     matchLabels:
-      app: devpulse
+      app: eddie-register-app
   template:
     metadata:
       labels:
-        app: devpulse
+        app: eddie-register-app
     spec:
       containers:
-      - name: devpulse
-        image: eddiebyte/devpulse:latest
+      - name: eddie-register-app
+        image: eddiebyte/eddie-register-app:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 8080
         resources:
           requests:
-            memory: "512Mi"
-            cpu: "250m"
+            memory: "256Mi"
+            cpu: "150m"
           limits:
-            memory: "1Gi"
-            cpu: "500m"
+            memory: "512Mi"
+            cpu: "300m"
         livenessProbe:
           httpGet:
-            path: /actuator/health/liveness
+            path: /home.jsp
             port: 8080
           initialDelaySeconds: 30
           periodSeconds: 10
         readinessProbe:
           httpGet:
-            path: /actuator/health/readiness
+            path: /home.jsp
             port: 8080
           initialDelaySeconds: 15
           periodSeconds: 10

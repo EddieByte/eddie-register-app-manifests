@@ -1,17 +1,17 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: devpulse-dev
+  name: eddie-register-app-dev
   namespace: argocd
 spec:
   project: default
   source:
-    repoURL: https://github.com/EddieByte/devpulse-manifests.git
+    repoURL: https://github.com/EddieByte/eddie-register-app-manifests.git
     targetRevision: HEAD
     path: overlays/dev
   destination:
     server: https://kubernetes.default.svc
-    namespace: devpulse-dev
+    namespace: eddie-register-app-dev
   syncPolicy:
     automated:
       prune: true

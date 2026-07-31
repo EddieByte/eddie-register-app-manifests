@@ -15,6 +15,6 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: devpulse-service
-                port:
-                  number: 80
+              name: eddie-register-app-service
+              port:
+              number: 80
