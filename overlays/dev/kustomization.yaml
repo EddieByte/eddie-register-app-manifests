@@ -11,10 +11,10 @@ patchesStrategicMerge:
   apiVersion: apps/v1
   kind: Deployment
   metadata:
-    name: devpulse-deployment
+    name: eddie-register-app-deployment
   spec:
     replicas: 1
 images:
-- name: eddiebyte/devpulse
-  newName: eddiebyte/devpulse
-  newTag: 1.0.0-2
+- name: eddiebyte/eddie-register-app
+  newName: eddiebyte/eddie-register-app
+  newTag: 1.0.0-1

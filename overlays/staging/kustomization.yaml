@@ -11,24 +11,24 @@ patchesStrategicMerge:
     apiVersion: apps/v1
     kind: Deployment
     metadata:
-      name: devpulse-deployment
+      name: eddie-register-app-deployment
     spec:
       replicas: 2
-    
+
   - |-
     apiVersion: networking.k8s.io/v1
     kind: Ingress
     metadata:
-      name: devpulse-ingress
+      name: eddie-register-app-ingress
     spec:
       rules:
-        - host: staging.devpulse.example.com
+        - host: staging.register-app.example.com
           http:
             paths:
               - path: /
                 pathType: Prefix
                 backend:
                   service:
-                    name: devpulse-service
+                    name: eddie-register-app-service
                     port:
                       number: 80
