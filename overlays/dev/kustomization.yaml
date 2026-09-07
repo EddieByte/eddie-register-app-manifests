@@ -17,4 +17,4 @@ patchesStrategicMerge:
 images:
 - name: eddiebyte/eddie-register-app
   newName: eddiebyte/eddie-register-app
-  newTag: 1.0.0-1
+  newTag: 1.0.0-9
