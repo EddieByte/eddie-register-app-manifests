@@ -1,0 +1,217 @@
+# Values for kube-prometheus-stack (see argocd/monitoring.yaml).
+# Sized for a small lab cluster: 2-3 x t3.medium, short retention, no persistent disks.
+#
+# Two Secrets must exist in the "monitoring" namespace BEFORE the first sync
+# (see docs/monitoring-setup.md in cicd-eks-pipeline):
+#   grafana-admin       keys: admin-user, admin-password
+#   alertmanager-slack  key:  webhook-url
+
+# Short, predictable names: services become monitoring-prometheus, monitoring-alertmanager, grafana.
+fullnameOverride: monitoring
+
+crds:
+  enabled: true
+
+# ── EKS manages the control plane, so these can't be scraped. ─────────────────
+# Leaving them on produces permanent false "target down" alerts.
+kubeControllerManager:
+  enabled: false
+kubeScheduler:
+  enabled: false
+kubeEtcd:
+  enabled: false
+kubeProxy:
+  enabled: false
+windowsMonitoring:
+  enabled: false
+
+defaultRules:
+  rules:
+    etcd: false
+    kubeControllerManager: false
+    kubeSchedulerAlerting: false
+    kubeSchedulerRecording: false
+    kubeProxy: false
+    windows: false
+
+# ── Prometheus ───────────────────────────────────────────────────────────────
+prometheus:
+  prometheusSpec:
+    # Keep 3 days of data on the node's disk (emptyDir). Data resets if the pod moves.
+    retention: 3d
+    retentionSize: 2GB
+    # Pick up ServiceMonitors / rules from ANY namespace, not only ones labelled
+    # with this Helm release (needed for the blackbox probes and future app metrics).
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    probeSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+    resources:
+      requests:
+        cpu: 100m
+        memory: 512Mi
+      limits:
+        memory: 1Gi
+
+prometheusOperator:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      memory: 256Mi
+
+kube-state-metrics:
+  resources:
+    requests:
+      cpu: 10m
+      memory: 64Mi
+    limits:
+      memory: 128Mi
+
+prometheus-node-exporter:
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      memory: 64Mi
+
+# ── Grafana ──────────────────────────────────────────────────────────────────
+grafana:
+  fullnameOverride: grafana
+  # Password comes from a pre-created Secret. Letting the chart generate one would
+  # make ArgoCD regenerate it on every sync (and log you out each time).
+  admin:
+    existingSecret: grafana-admin
+    userKey: admin-user
+    passwordKey: admin-password
+  # Avoid Helm test pods showing up as ArgoCD hooks.
+  testFramework:
+    enabled: false
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 256Mi
+
+# ── Alertmanager → Slack ─────────────────────────────────────────────────────
+alertmanager:
+  alertmanagerSpec:
+    # Mounted at /etc/alertmanager/secrets/alertmanager-slack/ (keeps the webhook out of Git).
+    secrets:
+      - alertmanager-slack
+    resources:
+      requests:
+        cpu: 10m
+        memory: 32Mi
+      limits:
+        memory: 128Mi
+
+  config:
+    global:
+      resolve_timeout: 5m
+    inhibit_rules:
+      - source_matchers:
+          - 'severity = critical'
+        target_matchers:
+          - 'severity =~ warning|info'
+        equal:
+          - 'namespace'
+          - 'alertname'
+      - source_matchers:
+          - 'severity = warning'
+        target_matchers:
+          - 'severity = info'
+        equal:
+          - 'namespace'
+          - 'alertname'
+      - source_matchers:
+          - 'alertname = InfoInhibitor'
+        target_matchers:
+          - 'severity = info'
+        equal:
+          - 'namespace'
+      - target_matchers:
+          - 'alertname = InfoInhibitor'
+    route:
+      group_by: ['namespace', 'alertname']
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 12h
+      receiver: 'null'
+      routes:
+        # Watchdog always fires on purpose (proves alerting works); keep it out of Slack.
+        - receiver: 'null'
+          matchers:
+            - alertname = "Watchdog"
+        - receiver: 'null'
+          matchers:
+            - alertname = "InfoInhibitor"
+        # Only warning and critical alerts go to Slack; "info" stays in the UI.
+        - receiver: 'slack'
+          matchers:
+            - severity =~ "critical|warning"
+    receivers:
+      - name: 'null'
+      - name: 'slack'
+        slack_configs:
+          - api_url_file: /etc/alertmanager/secrets/alertmanager-slack/webhook-url
+            send_resolved: true
+            title: '[{{ .Status | toUpper }}] {{ .CommonLabels.alertname }}'
+            text: |-
+              {{ range .Alerts }}*{{ .Labels.severity }}* {{ if .Labels.namespace }}(`{{ .Labels.namespace }}`){{ end }}: {{ .Annotations.summary }}
+              {{ .Annotations.description }}
+              {{ end }}
+    templates:
+      - '/etc/alertmanager/config/*.tmpl'
+
+# ── Alerts specific to the register app ──────────────────────────────────────
+# The chart's built-in rules already cover crash-looping pods, deployments missing
+# replicas, nodes not ready, etc. These add the user-facing checks.
+additionalPrometheusRulesMap:
+  register-app:
+    groups:
+      - name: register-app.availability
+        rules:
+          - alert: RegisterAppDown
+            expr: probe_success{target=~"register-app-.*"} == 0
+            for: 2m
+            labels:
+              severity: critical
+            annotations:
+              summary: '{{ $labels.target }} is DOWN'
+              description: '/home.jsp has not returned HTTP 2xx for 2 minutes ({{ $labels.instance }}).'
+          - alert: RegisterAppSlow
+            expr: probe_duration_seconds{target=~"register-app-.*"} > 2
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: '{{ $labels.target }} is slow'
+              description: '/home.jsp has taken over 2s to respond for 5 minutes (now {{ $value | humanizeDuration }}).'
+      - name: register-app.resources
+        rules:
+          - alert: RegisterAppMemoryNearLimit
+            expr: |
+              max by (namespace, pod) (container_memory_working_set_bytes{namespace=~"eddie-register-app-.*", container="eddie-register-app"})
+                /
+              max by (namespace, pod) (kube_pod_container_resource_limits{namespace=~"eddie-register-app-.*", container="eddie-register-app", resource="memory"})
+                > 0.9
+            for: 10m
+            labels:
+              severity: warning
+            annotations:
+              summary: '{{ $labels.pod }} is using over 90% of its memory limit'
+              description: 'Tomcat in {{ $labels.namespace }}/{{ $labels.pod }} is close to its 512Mi limit and may be OOMKilled.'
+          - alert: RegisterAppOOMKilled
+            expr: |
+              (kube_pod_container_status_last_terminated_reason{namespace=~"eddie-register-app-.*", reason="OOMKilled"} == 1)
+                and on (namespace, pod, container)
+              (increase(kube_pod_container_status_restarts_total{namespace=~"eddie-register-app-.*"}[15m]) > 0)
+            labels:
+              severity: warning
+            annotations:
+              summary: '{{ $labels.pod }} was OOMKilled and restarted'
+              description: 'The container ran out of memory in {{ $labels.namespace }}. Consider raising the memory limit.'

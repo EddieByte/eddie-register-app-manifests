@@ -1,0 +1,25 @@
+# Values for the prometheus-blackbox-exporter chart (see argocd/blackbox-exporter.yaml).
+fullnameOverride: blackbox-exporter
+
+resources:
+  requests:
+    cpu: 10m
+    memory: 32Mi
+  limits:
+    memory: 64Mi
+
+serviceMonitor:
+  enabled: true
+  defaults:
+    interval: 30s
+    scrapeTimeout: 10s
+    module: http_2xx
+  # One entry per environment. The "name" becomes the `target` label used in alerts.
+  # Probes go to the in-cluster Service, so they work even without a public URL.
+  # If an environment is NOT deployed, remove its entry, or it will alert as "down".
+  targets:
+    - name: register-app-dev
+      url: http://dev-eddie-register-app-service.eddie-register-app-dev.svc.cluster.local/home.jsp
+    # Uncomment once the prod Application is deployed:
+    # - name: register-app-prod
+    #   url: http://prod-eddie-register-app-service.eddie-register-app-prod.svc.cluster.local/home.jsp

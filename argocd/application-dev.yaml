@@ -3,6 +3,11 @@ kind: Application
 metadata:
   name: eddie-register-app-dev
   namespace: argocd
+  annotations:
+    # ArgoCD Notifications -> Slack #deployments. Harmless if notifications are not configured.
+    notifications.argoproj.io/subscribe.on-deployed.slack: deployments
+    notifications.argoproj.io/subscribe.on-sync-failed.slack: deployments
+    notifications.argoproj.io/subscribe.on-health-degraded.slack: deployments
 spec:
   project: default
   source:

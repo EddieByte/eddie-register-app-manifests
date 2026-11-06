@@ -1,0 +1,6 @@
+# Applied once with:
+#   kubectl -n argocd patch configmap argocd-notifications-cm --type merge --patch-file argocd/notifications/slack-service-patch.yaml
+# "$slack-token" is a reference to the key in the argocd-notifications-secret Secret, not a literal value.
+data:
+  service.slack: |
+    token: $slack-token

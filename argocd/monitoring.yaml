@@ -1,0 +1,42 @@
+# kube-prometheus-stack: Prometheus, Alertmanager, Grafana, node-exporter, kube-state-metrics.
+# Runs in its own "monitoring" namespace and does not touch the app namespaces.
+# Values live in this repo: monitoring/kube-prometheus-stack-values.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: monitoring
+  namespace: argocd
+  # Deleting this Application also removes everything it installed (clean rollback).
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  sources:
+    - repoURL: https://prometheus-community.github.io/helm-charts
+      chart: kube-prometheus-stack
+      targetRevision: 92.21.2
+      helm:
+        releaseName: monitoring
+        valueFiles:
+          - $values/monitoring/kube-prometheus-stack-values.yaml
+    - repoURL: https://github.com/EddieByte/eddie-register-app-manifests.git
+      targetRevision: HEAD
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      # The Prometheus Operator CRDs exceed the 256KB client-side apply annotation limit
+      # (the same problem hit when installing ArgoCD itself).
+      - ServerSideApply=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 30s
+        factor: 2
+        maxDuration: 5m
