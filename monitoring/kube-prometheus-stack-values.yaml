@@ -89,12 +89,14 @@ grafana:
   # Avoid Helm test pods showing up as ArgoCD hooks.
   testFramework:
     enabled: false
+  # Grafana needs well over 256Mi while it starts and loads the built-in dashboards
+  # (it was OOMKilled at 256Mi), so allow it 512Mi.
   resources:
     requests:
       cpu: 50m
-      memory: 128Mi
-    limits:
       memory: 256Mi
+    limits:
+      memory: 512Mi
 
 # ── Alertmanager → Slack ─────────────────────────────────────────────────────
 alertmanager:
