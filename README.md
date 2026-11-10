@@ -33,8 +33,8 @@ This repository is the Kubernetes and GitOps layer that deploys that application
 The manifests define a simple application deployment stack:
 
 - A **Deployment** running the `eddie-register-app` container image.
-- A **Service** exposing the app internally through the cluster.
-- An **Ingress** fronted by an AWS ALB to make the app reachable from outside the cluster.
+- A **Service** of type `LoadBalancer`: AWS creates a Classic Load Balancer that makes the app
+  reachable from the internet.
 - **ArgoCD Application** resources for `dev` and `prod` synchronization.
 
 ## Getting Started
@@ -60,23 +60,30 @@ kubectl apply -k overlays/prod
 
 ## Accessing the Application
 
-Once deployed, the application is exposed through the AWS Application Load Balancer defined by the ingress resource.
+Once deployed, the application is exposed through an AWS Classic Load Balancer created
+automatically for the `LoadBalancer` Service.
 
 ### 1. Find the external URL
 
 ```bash
-kubectl get ingress -n eddie-register-app-dev
+kubectl get svc -n eddie-register-app-dev
 ```
 
-Look for the **ADDRESS** column and copy the DNS name for the ALB.
+Look for the **EXTERNAL-IP** column and copy the DNS name (`...elb.amazonaws.com`).
 
 ### 2. Wait for DNS propagation
 
-AWS may take a few minutes to provision and publish the load balancer DNS name. During that time, the app may return a timeout or brief 404 response.
+AWS may take a few minutes to provision and publish the load balancer DNS name. During that time, the app may return a timeout.
 
 ### 3. Open the app in a browser
 
-Use the DNS name shown by the ingress to reach the application and test the registration workflow.
+Open `http://<EXTERNAL-IP DNS name>` to reach the application and test the registration workflow.
+
+### Teardown note
+
+The load balancer is created by Kubernetes, not Terraform. Delete the ArgoCD Application
+(or the Service) and wait for the load balancer to disappear **before** running
+`terraform destroy`, otherwise the VPC cannot be deleted.
 
 ---
 
