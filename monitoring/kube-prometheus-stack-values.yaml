@@ -193,6 +193,16 @@ additionalPrometheusRulesMap:
             annotations:
               summary: '{{ $labels.target }} is slow'
               description: '/home.jsp has taken over 2s to respond for 5 minutes (now {{ $value | humanizeDuration }}).'
+      - name: register-app.database
+        rules:
+          - alert: RegisterAppDatabaseDown
+            expr: probe_success{target=~"db-health-.*"} == 0
+            for: 2m
+            labels:
+              severity: critical
+            annotations:
+              summary: 'The app cannot reach its database ({{ $labels.target }})'
+              description: '/health has failed for 2 minutes: registration and login are down. Check the RDS instance and the register-app-db secret.'
       - name: register-app.resources
         rules:
           - alert: RegisterAppMemoryNearLimit

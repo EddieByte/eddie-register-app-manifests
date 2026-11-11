@@ -20,6 +20,9 @@ serviceMonitor:
   targets:
     - name: register-app-dev
       url: http://dev-eddie-register-app-service.eddie-register-app-dev.svc.cluster.local/home.jsp
+    # /health returns 200 only when the app can reach the RDS database.
+    - name: db-health-dev
+      url: http://dev-eddie-register-app-service.eddie-register-app-dev.svc.cluster.local/health
     # Uncomment once the prod Application is deployed:
     # - name: register-app-prod
     #   url: http://prod-eddie-register-app-service.eddie-register-app-prod.svc.cluster.local/home.jsp

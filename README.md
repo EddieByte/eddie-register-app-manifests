@@ -58,6 +58,16 @@ kubectl apply -k overlays/dev
 kubectl apply -k overlays/prod
 ```
 
+## Database connection
+
+The app stores accounts in Amazon RDS PostgreSQL. Its connection settings (`DB_URL`,
+`DB_USER`, `DB_PASSWORD`) come from a Kubernetes Secret named `register-app-db` in each app
+namespace. The Secret is **not** in this repository: it is created from SSM and Terraform
+outputs by `scripts/sync-k8s-secrets.ps1` in the `cicd-eks-pipeline` repo.
+
+The Deployment marks the Secret as optional, so the app still starts without it (account
+pages then show "database unavailable"). Run the sync script, and it restarts the app.
+
 ## Accessing the Application
 
 Once deployed, the application is exposed through an AWS Classic Load Balancer created

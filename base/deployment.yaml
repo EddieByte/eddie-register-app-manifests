@@ -19,13 +19,20 @@ spec:
         imagePullPolicy: Always
         ports:
         - containerPort: 8080
+        # DB_URL, DB_USER, DB_PASSWORD come from the "register-app-db" Secret, created by
+        # cicd-eks-pipeline/scripts/sync-k8s-secrets.ps1 (never stored in Git).
+        # optional: the app still starts without it and shows "database unavailable".
+        envFrom:
+        - secretRef:
+            name: register-app-db
+            optional: true
         resources:
           requests:
             memory: "256Mi"
             cpu: "150m"
           limits:
             memory: "512Mi"
-            cpu: "300m"
+            cpu: "500m"
         livenessProbe:
           httpGet:
             path: /home.jsp
@@ -37,4 +44,4 @@ spec:
             path: /home.jsp
             port: 8080
           initialDelaySeconds: 15
-          periodSeconds: 10
+          periodSeconds: 10
